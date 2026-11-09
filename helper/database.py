@@ -103,11 +103,24 @@ class Database:
 
     async def set_format_template(self, id, format_template):
         try:
-            await self.col.update_one(
-                {"_id": int(id)}, {"$set": {"format_template": format_template}}
+            user_id = int(id)
+            defaults = self.new_user(user_id)
+            defaults.pop("_id", None)
+            defaults.pop("format_template", None)
+
+            result = await self.col.update_one(
+                {"_id": user_id},
+                {
+                    "$set": {"format_template": format_template},
+                    "$setOnInsert": defaults
+                },
+                upsert=True
             )
+            if result.matched_count == 0 and result.upserted_id is None:
+                raise RuntimeError("MongoDB did not save the rename template")
         except Exception as e:
             logging.error(f"Error setting format template for user {id}: {e}")
+            raise
 
     async def get_format_template(self, id):
         try:
